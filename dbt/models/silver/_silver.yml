@@ -1,0 +1,60 @@
+version: 2
+
+# Tests de base : chaque clé est unique et jamais vide.
+# Les tests de qualité plus poussés arrivent à l'étape 6.
+
+models:
+  - name: stg_clients
+    description: "Clients SAP nettoyés, avec repérage des doublons potentiels."
+    columns:
+      - name: client_id
+        description: "Numéro client SAP (KUNNR)"
+        data_tests: [unique, not_null]
+      - name: client_maitre_id
+        description: "Numéro du client de référence quand plusieurs fiches désignent la même société"
+
+  - name: stg_articles
+    description: "Articles SAP avec leur désignation française."
+    columns:
+      - name: article_id
+        description: "Numéro article SAP (MATNR)"
+        data_tests: [unique, not_null]
+
+  - name: stg_commandes_entetes
+    columns:
+      - name: commande_id
+        description: "Numéro de commande SAP (VBAK.VBELN)"
+        data_tests: [unique, not_null]
+
+  - name: stg_commandes_postes
+    columns:
+      - name: commande_poste_id
+        description: "Commande + poste (VBELN-POSNR)"
+        data_tests: [unique, not_null]
+      - name: commande_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_commandes_entetes')
+                field: commande_id
+
+  - name: stg_livraisons_entetes
+    columns:
+      - name: livraison_id
+        data_tests: [unique, not_null]
+
+  - name: stg_livraisons_postes
+    columns:
+      - name: livraison_poste_id
+        data_tests: [unique, not_null]
+
+  - name: stg_factures_entetes
+    columns:
+      - name: facture_id
+        data_tests: [unique, not_null]
+
+  - name: stg_factures_postes
+    columns:
+      - name: facture_poste_id
+        data_tests: [unique, not_null]

@@ -1,0 +1,9 @@
+# Profil de connexion dbt -> DuckDB.
+# dbt cherche ce fichier dans le dossier courant : lancez les commandes depuis dbt/.
+sap_o2c:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../data/warehouse.duckdb
+      threads: 4
