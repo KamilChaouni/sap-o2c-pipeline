@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Calendrier 2024-2027, une ligne par jour."
+    columns:
+      - name: date_id
+        data_tests: [unique, not_null]
+
+  - name: dim_client
+    description: "Clients, avec le client maître pour fusionner les doublons."
+    columns:
+      - name: client_id
+        data_tests: [unique, not_null]
+
+  - name: dim_article
+    description: "Articles, plus une ligne 'INCONNU' pour les articles absents de MARA."
+    columns:
+      - name: article_id
+        data_tests: [unique, not_null]
+
+  - name: fait_ventes
+    description: "Une ligne par poste de commande, avec livraison et facturation."
+    columns:
+      - name: commande_poste_id
+        data_tests: [unique, not_null]
+      - name: client_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_client')
+                field: client_id
+      - name: article_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_article')
+                field: article_id
+      - name: date_commande
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_id
+      - name: statut
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Refusé', 'Non livré', 'Livré non facturé', 'Facturé partiellement', 'Facturé']
