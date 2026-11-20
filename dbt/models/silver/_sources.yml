@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Données SAP brutes chargées par scripts/load_bronze.py (toutes les colonnes en texte)."
+    schema: bronze
+    tables:
+      - name: kna1
+        description: "Clients (données générales)"
+      - name: mara
+        description: "Articles (données générales)"
+      - name: makt
+        description: "Désignations des articles, par langue"
+      - name: vbak
+        description: "Commandes de vente : en-têtes"
+      - name: vbap
+        description: "Commandes de vente : postes"
+      - name: likp
+        description: "Livraisons : en-têtes"
+      - name: lips
+        description: "Livraisons : postes"
+      - name: vbrk
+        description: "Factures : en-têtes"
+      - name: vbrp
+        description: "Factures : postes"
