@@ -1,0 +1,42 @@
+# CI : à chaque pull request vers main, on reconstruit toute la chaîne
+# et on lance les tests dbt. Si un test bloquant échoue, la PR est marquée en rouge.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # bouton "Run workflow" dans l'onglet Actions
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les librairies
+        run: pip install -r requirements.txt
+
+      - name: Générer les données SAP simulées
+        run: python scripts/generate_sap_data.py
+
+      - name: Charger la couche Bronze
+        run: python scripts/load_bronze.py
+
+      - name: dbt build (Silver, Gold et tests)
+        working-directory: dbt
+        run: dbt build
+
+      - name: Vérifier que le tableau de bord démarre
+        run: |
+          python scripts/export_gold.py
+          python -c "from streamlit.testing.v1 import AppTest; at = AppTest.from_file('app/dashboard.py', default_timeout=60).run(); assert not at.exception, at.exception; print('Tableau de bord OK')"

@@ -1,0 +1,76 @@
+# Pipeline planifiée : toute la chaîne tourne seule chaque nuit.
+# Extraction (simulée) -> Bronze -> dbt (Silver, Gold, tests) -> fraîcheur -> export Gold.
+# En cas d'échec : e-mail automatique de GitHub + message Discord (si configuré).
+
+name: Pipeline nocturne
+
+on:
+  schedule:
+    # Tous les jours à 01:17 UTC (02:17 à Paris en hiver, 03:17 en été).
+    # Une minute "bizarre" plutôt que :00, l'heure où GitHub est le plus chargé.
+    - cron: "17 1 * * *"
+  workflow_dispatch:  # lancement manuel depuis l'onglet Actions
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les librairies
+        run: pip install -r requirements.txt
+
+      - name: 1. Extraction SAP (simulée)
+        run: python scripts/generate_sap_data.py --orders 5000
+
+      - name: 2. Chargement Bronze
+        run: python scripts/load_bronze.py
+
+      - name: 3. Fraîcheur des sources
+        working-directory: dbt
+        run: dbt source freshness
+
+      - name: 4. Transformations et tests (Silver, Gold)
+        working-directory: dbt
+        run: dbt build
+
+      - name: 5. Export Gold pour le tableau de bord
+        run: python scripts/export_gold.py
+
+      - name: Documentation dbt
+        working-directory: dbt
+        run: dbt docs generate --static
+
+      - name: Sauvegarder les résultats
+        uses: actions/upload-artifact@v4
+        with:
+          name: gold-${{ github.run_number }}
+          path: |
+            data/gold/
+            dbt/target/static_index.html
+          retention-days: 7
+
+      - name: Alerte Discord en cas d'échec
+        if: failure() && env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          curl -sS -H "Content-Type: application/json" \
+            -d "{\"content\": \"❌ **Pipeline SAP O2C en échec** (run #${{ github.run_number }})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$DISCORD_WEBHOOK_URL"
+
+      - name: Message Discord en cas de succès
+        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          curl -sS -H "Content-Type: application/json" \
+            -d "{\"content\": \"✅ Pipeline SAP O2C OK (run #${{ github.run_number }})\"}" \
+            "$DISCORD_WEBHOOK_URL"
