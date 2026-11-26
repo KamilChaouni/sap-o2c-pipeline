@@ -11,7 +11,7 @@ Données SAP simulées (CSV)
   → Bronze : données brutes (Parquet / DuckDB)
   → Silver : données nettoyées (dbt)
   → Gold   : modèle en étoile (dbt)
-  → Tableau de bord (Power BI Desktop)
+  → Tableau de bord (Streamlit)
 ```
 
 Le tout est automatisé avec GitHub Actions (exécution planifiée, tests de qualité, alertes).
@@ -31,7 +31,7 @@ Le tout est automatisé avec GitHub Actions (exécution planifiée, tests de qua
 - Python (Faker, pandas, pyarrow)
 - DuckDB
 - dbt-core + dbt-duckdb
-- Power BI Desktop
+- Streamlit + Plotly
 - GitHub Actions
 
 ## Installation
@@ -94,13 +94,69 @@ Couche Silver (schéma `silver`) :
 
 Macros utiles : `sap_date()` (AAAAMMJJ → date) et `sap_flag()` ('X' → vrai).
 
+## Modèle en étoile (Gold)
+
+Schéma `gold`, prêt pour le tableau de bord :
+
+```
+              dim_date
+                 │ date_commande
+dim_client ── fait_ventes ── dim_article
+  client_id      │           article_id
+```
+
+| Modèle | Contenu |
+|---|---|
+| fait_ventes | Une ligne par poste de commande : montants commandés et facturés, quantités livrées, délais, statut O2C |
+| dim_client | Clients, avec `nom_client_maitre` pour fusionner les doublons |
+| dim_article | Articles, plus une ligne `INCONNU` pour les articles absents de MARA |
+| dim_date | Calendrier 2024-2027 |
+
+Statuts : Facturé, Facturé partiellement, Livré non facturé, Non livré, Refusé.
+
+## Qualité des données
+
+```bash
+cd dbt
+dbt build              # modèles + tous les tests
+dbt source freshness   # les données Bronze ont-elles été chargées récemment ?
+```
+
+| Test | Niveau | Vérifie |
+|---|---|---|
+| assert_reconciliation_bronze_gold | Bloquant | Même nombre de postes et même montant entre Bronze et Gold |
+| assert_facture_sans_livraison | Bloquant | On ne facture pas plus que ce qui a été livré |
+| valeur_positive (générique) | Bloquant | Montants et quantités jamais négatifs |
+| assert_entete_commande_egale_somme_postes | Avertissement | VBAK.NETWR = somme des postes VBAP |
+| assert_articles_orphelins | Avertissement | Articles absents de MARA |
+| assert_livraisons_sans_date_sortie | Avertissement | Date de sortie des marchandises vide |
+
+Les lignes en erreur sont enregistrées dans le schéma `audit` (une table par test).
+
+## Tableau de bord (Streamlit)
+
+```bash
+python scripts/export_gold.py     # Gold + résumé qualité -> data/gold/*.parquet
+streamlit run app/dashboard.py    # ouvre http://localhost:8501
+```
+
+Le tableau de bord lit les fichiers Parquet (pas la base DuckDB) : il peut rester ouvert pendant que dbt tourne.
+
+| Onglet | Contenu |
+|---|---|
+| Vue d'ensemble | CA commandé / facturé, taux de facturation, CA par mois, CA par groupe d'articles |
+| Suivi Order-to-Cash | Délais, montants par statut, top 10 clients « livré non facturé » (export CSV) |
+| Qualité des données | Résultat des tests dbt, CA rattaché à des articles inconnus |
+
+![Vue d'ensemble](docs/apercu_vue_ensemble.png)
+
 ## Avancement
 
 - [x] 1. Mise en place du dépôt
 - [x] 2. Génération des données SAP simulées
 - [x] 3. Couche Bronze
 - [x] 4. dbt + couche Silver
-- [ ] 5. Couche Gold
-- [ ] 6. Tests de qualité et réconciliation
-- [ ] 7. Tableau de bord
+- [x] 5. Couche Gold
+- [x] 6. Tests de qualité et réconciliation
+- [x] 7. Tableau de bord
 - [ ] 8. Automatisation (GitHub Actions)
