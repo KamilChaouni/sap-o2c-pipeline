@@ -45,6 +45,12 @@ models:
               arguments:
                 to: ref('dim_date')
                 field: date_id
+      - name: montant_commande
+        data_tests: [valeur_positive]
+      - name: montant_facture
+        data_tests: [valeur_positive]
+      - name: quantite_commandee
+        data_tests: [valeur_positive]
       - name: statut
         data_tests:
           - accepted_values:

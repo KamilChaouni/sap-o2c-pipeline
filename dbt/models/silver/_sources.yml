@@ -4,6 +4,12 @@ sources:
   - name: bronze
     description: "Données SAP brutes chargées par scripts/load_bronze.py (toutes les colonnes en texte)."
     schema: bronze
+    # Fraîcheur : alerte si le dernier chargement date de plus d'un jour
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 72, period: hour}
     tables:
       - name: kna1
         description: "Clients (données générales)"

@@ -21,3 +21,9 @@ models:
     gold:
       +schema: gold
       +materialized: table
+
+data_tests:
+  sap_o2c:
+    # Les lignes en erreur sont enregistrées dans le schéma "audit"
+    +store_failures: true
+    +schema: audit
